@@ -12,21 +12,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import mungarro.carlos.thecheezery_mungarrocarlos.data.CombosDAO
-import mungarro.carlos.thecheezery_mungarrocarlos.data.DatabaseHelper
-import mungarro.carlos.thecheezery_mungarrocarlos.domain.Combo
+import mungarro.carlos.thecheezery_mungarrocarlos.data.database.AppDatabase
+import mungarro.carlos.thecheezery_mungarrocarlos.data.database.relation.ComboWithProducts
+import mungarro.carlos.thecheezery_mungarrocarlos.data.repository.CheezeryRepository
 import mungarro.carlos.thecheezery_mungarrocarlos.ui.theme.Brighter_Pink
-import kotlin.collections.forEach
 
 @Composable
 fun CombosScreen() {
     val context = LocalContext.current
-    val dbHelper = remember { DatabaseHelper(context) }
-    val combosDAO = remember { CombosDAO(dbHelper) }
-    var combosList by remember { mutableStateOf<List<Combo>>(emptyList()) }
+    val repository = remember { CheezeryRepository(AppDatabase.getInstance(context)) }
+    var combosList by remember { mutableStateOf<List<ComboWithProducts>>(emptyList()) }
 
     LaunchedEffect(Unit) {
-        combosList = combosDAO.getAllCombos()
+        repository.getAllCombosWithProducts().collect { combosList = it }
     }
 
     Column(
@@ -52,8 +50,8 @@ fun CombosScreen() {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(combosList) { combo ->
-                    ComboItem(combo)
+                items(combosList) { comboWithProducts ->
+                    ComboItem(comboWithProducts)
                 }
             }
         }
@@ -61,7 +59,7 @@ fun CombosScreen() {
 }
 
 @Composable
-fun ComboItem(combo: Combo) {
+fun ComboItem(comboWithProducts: ComboWithProducts) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
@@ -71,12 +69,12 @@ fun ComboItem(combo: Combo) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = combo.name, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text(text = "$${combo.price}", fontSize = 18.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+                Text(text = comboWithProducts.combo.name, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(text = "$${comboWithProducts.combo.price}", fontSize = 18.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = "Includes:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            combo.products.forEach { product ->
+            comboWithProducts.products.forEach { product ->
                 Text(text = "• ${product.name}", fontSize = 14.sp, color = Color.DarkGray)
             }
         }

@@ -1,6 +1,5 @@
 package mungarro.carlos.thecheezery_mungarrocarlos.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,30 +10,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
-import mungarro.carlos.thecheezery_mungarrocarlos.data.CombosDAO
-import mungarro.carlos.thecheezery_mungarrocarlos.data.DatabaseHelper
-import mungarro.carlos.thecheezery_mungarrocarlos.data.ProductsDAO
+import kotlinx.coroutines.launch
+import mungarro.carlos.thecheezery_mungarrocarlos.data.database.AppDatabase
+import mungarro.carlos.thecheezery_mungarrocarlos.data.database.entity.ComboEntity
+import mungarro.carlos.thecheezery_mungarrocarlos.data.repository.CheezeryRepository
+import mungarro.carlos.thecheezery_mungarrocarlos.data.database.entity.ProductEntity
 import mungarro.carlos.thecheezery_mungarrocarlos.ui.theme.Brighter_Pink
-import kotlin.collections.isNotEmpty
-import kotlin.text.isNotBlank
-import kotlin.text.toFloatOrNull
 
 @Composable
 fun AddComboScreen(navController: NavController) {
     val context = LocalContext.current
-    val dbHelper = remember { DatabaseHelper(context) }
-    val productsDAO = remember { ProductsDAO(dbHelper) }
-    val combosDAO = remember { CombosDAO(dbHelper) }
+    val repository = remember { CheezeryRepository(AppDatabase.getInstance(context)) }
+    val scope = rememberCoroutineScope()
 
     var comboName by remember { mutableStateOf("") }
     var comboPrice by remember { mutableStateOf("") }
-    val allProducts = remember { productsDAO.getAllProducts() }
+    var allProducts by remember { mutableStateOf<List<ProductEntity>>(emptyList()) }
     val selectedProductIds = remember { mutableStateListOf<Int>() }
+
+    LaunchedEffect(Unit) {
+        repository.getAllProducts().collect { allProducts = it }
+    }
 
     Column(
         modifier = Modifier
@@ -90,11 +89,8 @@ fun AddComboScreen(navController: NavController) {
                     Checkbox(
                         checked = selectedProductIds.contains(product.id),
                         onCheckedChange = { isChecked ->
-                            if (isChecked) {
-                                selectedProductIds.add(product.id)
-                            } else {
-                                selectedProductIds.remove(product.id)
-                            }
+                            if (isChecked) selectedProductIds.add(product.id)
+                            else selectedProductIds.remove(product.id)
                         }
                     )
                     Text(text = product.name, fontSize = 18.sp)
@@ -110,8 +106,13 @@ fun AddComboScreen(navController: NavController) {
             onClick = {
                 val price = comboPrice.toFloatOrNull() ?: 0f
                 if (comboName.isNotBlank() && price > 0 && selectedProductIds.isNotEmpty()) {
-                    combosDAO.insertCombo(comboName, price, selectedProductIds.toList())
-                    navController.popBackStack()
+                    scope.launch {
+                        repository.insertCombo(
+                            ComboEntity(name = comboName, price = price),
+                            selectedProductIds.toList()
+                        )
+                        navController.popBackStack()
+                    }
                 }
             },
             colors = ButtonDefaults.buttonColors(containerColor = Brighter_Pink),
@@ -123,10 +124,3 @@ fun AddComboScreen(navController: NavController) {
         }
     }
 }
-
-@Composable
-@Preview (showBackground = true)
-fun AddComboScreenPreview() {
-    AddComboScreen(rememberNavController())
-}
-
